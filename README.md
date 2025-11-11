@@ -16,35 +16,36 @@
 
 ---
 
-## 🧩 项目结构
+## 📁 项目结构
+```plaintext
 📦 blockchain_mvp/
 │
 ├── data/
-│ └── trust_chain_dataset_2020plus.csv # 供应链交易数据集
+│   └── trust_chain_dataset_2020plus.csv      # 供应链交易数据集
 │
 ├── static/
-│ └── style.css # 前端样式
+│   └── style.css                             # 前端样式
 │
 ├── templates/
-│ ├── base.html # 基础模板
-│ └── index.html # 仪表盘与交互页面
+│   ├── base.html                             # 基础模板
+│   └── index.html                            # 仪表盘与交互页面
 │
-├── app.py # Flask 启动入口
-├── compute.py # 透明度与风险计算逻辑
-├── security.py # 哈希与签名验证模块
+├── app.py                                    # Flask 启动入口
+├── compute.py                                # 透明度与风险计算逻辑
+├── security.py                               # 哈希与签名验证模块
 │
-└── transparancy/ # 实验与论文分析结果
-├── trust_chain_dataset.csv # 原始数据
-├── ml_compare.py # 模型性能对比脚本
-├── s3_f.py # 风险值与透明度计算函数
-├── pic_2.py / pic.py # 绘图脚本
-├── feature_importance_rf.csv # 随机森林特征重要性
-├── feature_importance_xgb.csv # XGBoost 特征重要性
-├── feature_importance_xgb_shap.csv # SHAP 可解释性结果
-├── logit_coefficients.csv # Logit 回归系数
-├── ols_T14_tuned_coefs.csv # OLS 回归结果
-├── ml_cv_results.csv # 模型交叉验证结果
-└── spearman_corr.csv # 相关系数矩阵
+├── transparancy/                             # 实验与论文分析结果
+│   ├── trust_chain_dataset.csv               # 原始数据结果
+│   ├── s3_f.py                               # 风险值与透明度计算函数
+│   ├── ml_compare.py                         # 模型性能对比脚本
+│   ├── pic_2.py / pic.py                     # 绘图脚本
+│   ├── feature_importance_rf.csv             # 随机森林特征重要性
+│   ├── feature_importance_xgb.csv            # XGBoost 特征重要性
+│   ├── feature_importance_xgb_shap.csv       # SHAP 可解释性结果
+│   ├── logit_coefficients.csv                # Logit 回归系数
+│   ├── ols_T14_tuned_coefs.csv               # OLS 回归结果
+│   ├── ml_cv_results.csv                     # 模型交叉验证结果
+│   └── spearman_corr.csv                     # 相关系数矩阵
 
 ---
 ## 📊 MVP 功能展示
