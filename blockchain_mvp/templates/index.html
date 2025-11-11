@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-md-3"><div class="card shadow-sm"><div class="card-body">
+    <h6 class="text-muted">样本数</h6><h3 id="n">{{ metrics.n }}</h3>
+  </div></div></div>
+  <div class="col-md-3"><div class="card shadow-sm"><div class="card-body">
+    <h6 class="text-muted">平均透明度 T_total</h6><h3 id="tmean">{{ "%.3f"|format(metrics.T_total_mean) }}</h3>
+  </div></div></div>
+  <div class="col-md-3"><div class="card shadow-sm"><div class="card-body">
+    <h6 class="text-muted">平均风险 R</h6><h3 id="rmean">{{ "%.3f"|format(metrics.R_mean) }}</h3>
+  </div></div></div>
+  <div class="col-md-3"><div class="card shadow-sm"><div class="card-body">
+    <h6 class="text-muted">高风险阈值 (R 75%)</h6><h3 id="rq75">{{ "%.3f"|format(metrics.q75_R) }}</h3>
+  </div></div></div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-md-12">
+    <div class="card shadow-sm"><div class="card-body">
+      <h6 class="text-muted mb-2">透明度与风险关系（散点）</h6>
+      <div id="scatter" style="height:460px;"></div>
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-md-3"><div class="card shadow-sm"><div class="card-body">
+    <h6 class="text-muted">T1 可追溯性（均值）</h6><h4 id="t1">{{ "%.3f"|format(dims.T1) }}</h4>
+  </div></div></div>
+  <div class="col-md-3"><div class="card shadow-sm"><div class="card-body">
+    <h6 class="text-muted">T2 完整性（均值）</h6><h4 id="t2">{{ "%.3f"|format(dims.T2) }}</h4>
+  </div></div></div>
+  <div class="col-md-3"><div class="card shadow-sm"><div class="card-body">
+    <h6 class="text-muted">T3 披露频率（均值）</h6><h4 id="t3">{{ "%.3f"|format(dims.T3) }}</h4>
+  </div></div></div>
+  <div class="col-md-3"><div class="card shadow-sm"><div class="card-body">
+    <h6 class="text-muted">T4 审计可视度（均值）</h6><h4 id="t4">{{ "%.3f"|format(dims.T4) }}</h4>
+  </div></div></div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-md-12">
+    <div class="card shadow-sm"><div class="card-body">
+      <h6 class="text-muted mb-2">高风险交易预警（Top 20）</h6>
+      <table class="table table-sm table-striped" id="hrtbl">
+        <thead><tr>
+          <th>Transaction ID</th><th>Supplier ID</th><th>Customer ID</th>
+          <th>R</th><th>T_total</th><th>Order</th><th>Payment</th><th>TxHash</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div></div>
+  </div>
+</div>
+
+<!-- 哈希/签名篡改演示区块 -->
+<div class="row g-3 mt-1">
+  <div class="col-md-12">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h6 class="text-muted mb-2">哈希与签名篡改演示</h6>
+        <p class="small text-secondary">
+          左侧是原始交易JSON，右侧可随意修改任意字段。点击“对比哈希/验签”即可看到：
+          若修改了任何字段，哈希会立即不同；且用原始文本产生的签名去验签修改后的文本会失败。
+        </p>
+        <div class="row">
+          <div class="col-md-6">
+            <label class="form-label">原始 JSON</label>
+            <textarea id="orig" class="form-control" rows="12" spellcheck="false" style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace;"></textarea>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">修改后 JSON</label>
+            <textarea id="mod" class="form-control" rows="12" spellcheck="false" style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace;"></textarea>
+          </div>
+        </div>
+        <div class="mt-3">
+          <button id="btnCheck" class="btn btn-primary btn-sm">对比哈希 / 验签</button>
+          <span id="pubkey" class="ms-3 text-muted small"></span>
+        </div>
+        <div id="hashResult" class="mt-3 small"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadScatter(){
+  const res = await fetch("/api/scatter");
+  const js = await res.json();
+  const trace = {x: js.T_total, y: js.R, mode: 'markers', type: 'scatter', opacity:0.6};
+  const layout = {margin:{l:40,r:10,t:10,b:40}, xaxis:{title:"T_total"}, yaxis:{title:"R"}};
+  Plotly.newPlot('scatter', [trace], layout, {displayModeBar:false});
+}
+
+async function loadHighRisk(){
+  const res = await fetch("/api/highrisk?topk=20");
+  const rows = await res.json();
+  const tb = document.querySelector("#hrtbl tbody");
+  tb.innerHTML = "";
+  rows.forEach(r => {
+    const tr = document.createElement("tr");
+    ["Transaction ID","Supplier ID","Customer ID","R","T_total","Order Status","Payment Status","Transaction Hash"]
+      .forEach(k => {
+        const td = document.createElement("td");
+        td.textContent = r[k];
+        tr.appendChild(td);
+      });
+    tb.appendChild(tr);
+  });
+}
+
+/* ==== 哈希/签名演示 ==== */
+async function loadSampleTx(){
+  const res = await fetch("/api/sampletx");
+  const js = await res.json();
+  document.getElementById("orig").value = JSON.stringify(js.tx, null, 2);
+  document.getElementById("mod").value  = JSON.stringify(js.tx, null, 2);
+  document.getElementById("pubkey").textContent = "公钥(示意)：" + js.pubkey_hex.slice(0,32) + "...";
+}
+
+async function doHashCheck(){
+  try{
+    const orig = JSON.parse(document.getElementById("orig").value || "{}");
+    const mod  = JSON.parse(document.getElementById("mod").value || "{}");
+    const res = await fetch("/api/hashcheck", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({original: orig, modified: mod})
+    });
+    const js = await res.json();
+    const ok = (b) => b ? "✅" : "❌";
+    const html = `
+      <div class="card border-0">
+        <div class="card-body p-2">
+          <div><b>原始</b> Canonical: <code>${js.original.canonical}</code></div>
+          <div><b>原始</b> SHA-256: <code>${js.original.hash}</code></div>
+          <div><b>原始</b> 签名: <code>${js.original.sig.slice(0,40)}...</code> 验签 ${ok(js.original.verify)}</div>
+          <hr/>
+          <div><b>修改后</b> Canonical: <code>${js.modified.canonical}</code></div>
+          <div><b>修改后</b> SHA-256: <code>${js.modified.hash}</code></div>
+          <div>用“原始签名”验证“修改后文本” → ${ok(js.modified.verify_with_original_sig)}</div>
+          <div>两端哈希是否一致：${ok(js.equal_hash)}</div>
+        </div>
+      </div>`;
+    document.getElementById("hashResult").innerHTML = html;
+  }catch(e){
+    document.getElementById("hashResult").innerHTML = '<span class="text-danger">JSON 解析失败，请检查格式。</span>';
+  }
+}
+
+document.getElementById("btnCheck").addEventListener("click", doHashCheck);
+
+loadScatter();
+loadHighRisk();
+loadSampleTx();
+</script>
+{% endblock %}

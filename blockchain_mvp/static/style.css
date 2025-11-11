@@ -1,0 +1,4 @@
+body { background: #f7f8fb; }
+.card { border: none; border-radius: 16px; }
+.card-body h3, .card-body h4 { font-weight: 700; }
+.navbar-brand { font-weight: 700; letter-spacing: .5px; }
