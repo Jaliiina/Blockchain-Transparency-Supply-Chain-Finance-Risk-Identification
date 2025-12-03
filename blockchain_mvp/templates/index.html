@@ -83,6 +83,30 @@
     </div>
   </div>
 </div>
+
+<!-- 区块链应用实验展示 -->
+<div class="row g-3 mt-1">
+  <div class="col-md-12">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h6 class="text-muted mb-2">区块链应用实验展示（本地以太坊私链）</h6>
+        <p class="small text-secondary">
+          当前系统已连接到本地以太坊开发链（geth --dev），下方实时展示链上区块高度等信息，
+          并提供一个按钮调用链上 Hello 智能合约，用于说明本业务系统已与区块链底层集成。
+        </p>
+        <ul class="small mb-2">
+          <li>连接状态：<span id="c_connected">-</span></li>
+          <li>Chain ID：<span id="c_chainid">-</span></li>
+          <li>最新区块高度：<span id="c_blocknum">-</span></li>
+          <li>最新区块哈希：<code id="c_blockhash">-</code></li>
+        </ul>
+        <button id="btnRefreshChain" class="btn btn-outline-primary btn-sm me-2">刷新链状态</button>
+        <button id="btnHello" class="btn btn-primary btn-sm">调用链上 Hello 合约</button>
+        <span id="helloResult" class="ms-3 small text-muted"></span>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -153,8 +177,56 @@ async function doHashCheck(){
 
 document.getElementById("btnCheck").addEventListener("click", doHashCheck);
 
+/* ==== 区块链状态 + 合约调用 ==== */
+async function loadChainInfo(){
+  try{
+    const res = await fetch("/api/chaininfo");
+    const js = await res.json();
+    const yesno = (b) => b ? "已连接 ✅" : "未连接 ❌";
+    document.getElementById("c_connected").textContent = yesno(js.connected);
+    if(js.connected){
+      document.getElementById("c_chainid").textContent = js.chain_id;
+      document.getElementById("c_blocknum").textContent = js.block_number;
+      document.getElementById("c_blockhash").textContent = js.latest_block_hash;
+    }else{
+      document.getElementById("c_chainid").textContent = "-";
+      document.getElementById("c_blocknum").textContent = "-";
+      document.getElementById("c_blockhash").textContent = "-";
+    }
+  }catch(e){
+    document.getElementById("c_connected").textContent = "获取失败 ❌";
+  }
+}
+
+async function callHello(){
+  try{
+    const res = await fetch("/api/hello");
+    const js = await res.json();
+    const el = document.getElementById("helloResult");
+    if(js.ok){
+      el.textContent = "链上合约返回：" + js.message;
+      el.classList.remove("text-danger");
+      el.classList.add("text-success");
+    }else{
+      el.textContent = js.message || "合约调用失败";
+      el.classList.remove("text-success");
+      el.classList.add("text-danger");
+    }
+  }catch(e){
+    const el = document.getElementById("helloResult");
+    el.textContent = "请求失败，检查服务是否运行";
+    el.classList.remove("text-success");
+    el.classList.add("text-danger");
+  }
+}
+
+document.getElementById("btnRefreshChain").addEventListener("click", loadChainInfo);
+document.getElementById("btnHello").addEventListener("click", callHello);
+
+/* ==== 页面初始化 ==== */
 loadScatter();
 loadHighRisk();
 loadSampleTx();
+loadChainInfo();
 </script>
 {% endblock %}
