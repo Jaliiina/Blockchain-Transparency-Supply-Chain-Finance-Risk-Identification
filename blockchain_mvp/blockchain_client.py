@@ -12,7 +12,6 @@ w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
 def chain_info():
     """
     返回链状态信息：是否连接成功、chain_id、区块高度、最新区块哈希
-    页面上用来展示“我真的连了一条链”
     """
     ok = w3.is_connected()
     if not ok:
@@ -26,19 +25,6 @@ def chain_info():
         "block_number": int(latest_block.number),
         "latest_block_hash": latest_block.hash.hex(),
     }
-
-
-# ==== 智能合约调用：Hello 合约 ====
-# 这里约定：
-# 1）你在 Remix 上部署一个合约：
-#    pragma solidity ^0.8.21;
-#    contract Hello {
-#        function sayHello() public pure returns (string memory) {
-#            return "Hello Blockchain";
-#        }
-#    }
-# 2）把编译出来的 ABI 复制到 contracts/hello_abi.json
-# 3）把下面的 HELLO_CONTRACT_ADDRESS 换成你部署出来的合约地址
 
 CONTRACTS_DIR = Path(__file__).parent / "contracts"
 ABI_PATH = CONTRACTS_DIR / "hello_abi.json"
