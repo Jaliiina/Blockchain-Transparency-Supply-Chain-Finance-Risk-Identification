@@ -14,12 +14,19 @@
 3. **实现层面（MVP）**  
    基于 Flask + Plotly 构建轻量级可视化原型系统，实现透明度–风险实时展示与区块链哈希验证演示。
 
+系统包含四大核心功能：
+- 透明度与风险仪表盘（可视化）
+- 高风险交易识别
+-区块链哈希与数字签名验证演示
+- 智能合约部署与链上交互（区块链应用）
+
 ---
 
 ## 项目结构
 ```plaintext
 📦 blockchain_mvp/
-│
+│── contracts/
+│   └── hello_abi.json      # 智能合约基本情况
 ├── data/
 │   └── trust_chain_dataset_2020plus.csv      # 供应链交易数据集
 │
@@ -31,6 +38,7 @@
 │   └── index.html                            # 仪表盘与交互页面
 │
 ├── app.py                                    # Flask 启动入口
+├── blockchain_client.py                     
 ├── compute.py                                # 透明度与风险计算逻辑
 ├── security.py                               # 哈希与签名验证模块
 │
