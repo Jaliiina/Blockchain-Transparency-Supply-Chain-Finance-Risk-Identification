@@ -1,11 +1,11 @@
 from flask import Flask, render_template, jsonify, request
 import pandas as pd
 from pathlib import Path
-from compute import build_factors, top_metrics, high_risk_table
 from security import (
     canonical_dumps, sha256_hex, sign_hex, verify, public_key_hex
 )
-from blockchain_client import chain_info, hello_say  # 区块链相关
+from compute import build_factors, top_metrics, high_risk_table, compute_dataset_hash, compute_result_hash
+from blockchain_client import chain_info, commit_report
 
 app = Flask(__name__)
 
@@ -23,7 +23,16 @@ def index():
 def api_summary():
     df = pd.read_csv(DATA_PATH)
     df_calc = build_factors(df)
-    return jsonify(top_metrics(df_calc))
+    metrics = top_metrics(df_calc)
+
+    dataset_hash = compute_dataset_hash(df)
+    result_hash  = compute_result_hash(metrics)
+    proof = commit_report(dataset_hash, result_hash)
+
+    return jsonify({
+        "metrics": metrics,
+        "blockchain_proof": proof
+    })
 
 @app.route("/api/scatter")
 def api_scatter():
@@ -94,7 +103,7 @@ def api_hashcheck():
     })
 
 
-# ====== 新增：区块链状态 API ======
+
 @app.route("/api/chaininfo")
 def api_chaininfo():
     """
@@ -102,18 +111,6 @@ def api_chaininfo():
     """
     return jsonify(chain_info())
 
-
-# ====== 新增：调用 Hello 智能合约 API ======
-@app.route("/api/hello")
-def api_hello():
-    """
-    调用链上的 Hello 合约，如果没配置好就告诉前端
-    """
-    msg = hello_say()
-    if msg is None:
-        return jsonify({"ok": False, "message": "合约未配置或链未连接"})
-    return jsonify({"ok": True, "message": msg})
-
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
