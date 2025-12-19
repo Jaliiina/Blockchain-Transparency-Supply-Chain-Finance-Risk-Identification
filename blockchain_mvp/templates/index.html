@@ -89,20 +89,58 @@
   <div class="col-md-12">
     <div class="card shadow-sm">
       <div class="card-body">
-        <h6 class="text-muted mb-2">区块链应用实验展示（本地以太坊私链）</h6>
-        <p class="small text-secondary">
-          当前系统已连接到本地以太坊开发链（geth --dev），下方实时展示链上区块高度等信息，
-          并提供一个按钮调用链上 Hello 智能合约，用于说明本业务系统已与区块链底层集成。
-        </p>
-        <ul class="small mb-2">
-          <li>连接状态：<span id="c_connected">-</span></li>
-          <li>Chain ID：<span id="c_chainid">-</span></li>
-          <li>最新区块高度：<span id="c_blocknum">-</span></li>
-          <li>最新区块哈希：<code id="c_blockhash">-</code></li>
-        </ul>
-        <button id="btnRefreshChain" class="btn btn-outline-primary btn-sm me-2">刷新链状态</button>
-        <button id="btnHello" class="btn btn-primary btn-sm">调用链上 Hello 合约</button>
-        <span id="helloResult" class="ms-3 small text-muted"></span>
+        <!-- 链上存证展示（commitReport） -->
+        <div class="row g-3 mt-1">
+          <div class="col-md-12">
+            <div class="card shadow-sm">
+              <div class="card-body">
+                <h6 class="text-muted mb-2">链上存证展示（commitReport）</h6>
+
+                <p class="small text-secondary">
+                  系统采用“链下计算 + 链上存证（Anchor）”架构。
+                  点击按钮后，系统会对当前摘要结果计算哈希，
+                  并将其写入区块链，生成不可篡改的审计凭证。
+                </p>
+
+                <ul class="small mb-2">
+                  <li>连接状态：<span id="c_connected">-</span></li>
+                  <li>Chain ID：<span id="c_chainid">-</span></li>
+                  <li>最新区块高度：<span id="c_blocknum">-</span></li>
+                  <li>最新区块哈希：<code id="c_blockhash">-</code></li>
+                </ul>
+
+                <div class="d-flex gap-2 mb-2">
+                  <button id="btnRefreshChain"
+                          class="btn btn-outline-primary btn-sm">
+                    刷新链状态
+                  </button>
+
+                  <button id="btnAnchor"
+                          class="btn btn-primary btn-sm">
+                    生成摘要并上链存证
+                  </button>
+
+                  <span id="anchorStatus"
+                        class="small text-muted"></span>
+                </div>
+
+                <div class="small">
+                  <div>交易发起地址：<code id="a_from">-</code></div>
+                  <div>交易哈希 TxHash：<code id="a_tx">-</code></div>
+                  <div>写入区块号 Block：<code id="a_block">-</code></div>
+                  <div class="mt-2 text-secondary">
+                    数据集哈希：<code id="a_dataset">-</code>
+                  </div>
+                  <div class="text-secondary">
+                    结果哈希：<code id="a_result">-</code>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -177,7 +215,6 @@ async function doHashCheck(){
 
 document.getElementById("btnCheck").addEventListener("click", doHashCheck);
 
-/* ==== 区块链状态 + 合约调用 ==== */
 async function loadChainInfo(){
   try{
     const res = await fetch("/api/chaininfo");
@@ -198,32 +235,49 @@ async function loadChainInfo(){
   }
 }
 
-async function callHello(){
+async function doAnchor(){
+  const statusEl = document.getElementById("anchorStatus");
+
+  const setStatus = (txt, ok=null) => {
+    statusEl.textContent = txt;
+    statusEl.classList.remove("text-success","text-danger","text-muted");
+    if(ok === true) statusEl.classList.add("text-success");
+    else if(ok === false) statusEl.classList.add("text-danger");
+    else statusEl.classList.add("text-muted");
+  };
+
   try{
-    const res = await fetch("/api/hello");
+    setStatus("正在生成摘要并上链存证…");
+
+    const res = await fetch("/api/summary");
     const js = await res.json();
-    const el = document.getElementById("helloResult");
-    if(js.ok){
-      el.textContent = "链上合约返回：" + js.message;
-      el.classList.remove("text-danger");
-      el.classList.add("text-success");
-    }else{
-      el.textContent = js.message || "合约调用失败";
-      el.classList.remove("text-success");
-      el.classList.add("text-danger");
+
+    const proof = js.blockchain_proof || {};
+    if(!proof.ok){
+      setStatus(proof.message || "上链失败", false);
+      return;
     }
+
+    document.getElementById("a_from").textContent = proof.from || "-";
+    document.getElementById("a_tx").textContent = proof.tx_hash || "-";
+    document.getElementById("a_block").textContent = proof.block_number ?? "-";
+
+    const hashes = js.hashes || {};
+    document.getElementById("a_dataset").textContent = hashes.dataset_hash || "-";
+    document.getElementById("a_result").textContent = hashes.result_hash || "-";
+
+    setStatus("已完成：本次摘要已上链存证 ✅", true);
+    loadChainInfo();
   }catch(e){
-    const el = document.getElementById("helloResult");
-    el.textContent = "请求失败，检查服务是否运行";
-    el.classList.remove("text-success");
-    el.classList.add("text-danger");
+    setStatus("请求失败，请检查后端服务", false);
   }
 }
 
-document.getElementById("btnRefreshChain").addEventListener("click", loadChainInfo);
-document.getElementById("btnHello").addEventListener("click", callHello);
+document.getElementById("btnAnchor").addEventListener("click", doAnchor);
 
-/* ==== 页面初始化 ==== */
+
+document.getElementById("btnRefreshChain").addEventListener("click", loadChainInfo);
+
 loadScatter();
 loadHighRisk();
 loadSampleTx();
