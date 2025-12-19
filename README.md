@@ -174,7 +174,7 @@ Plotly 绘图 ←── /api/scatter ──→ Compute 模块
 
 系统既可用于研究演示，也可作为后续区块链风控平台原型的基础模块。
 
-## 实验部分（transparancy/）
+## 实验部分
 
 包含论文实验及统计结果文件：
 
@@ -209,6 +209,7 @@ MVP 原型展示了“从信号传递理论到工程落地”的完整路径，�
 ```bash
 geth --dev --rpc --rpcaddr 127.0.0.1 --rpcport 8545 \
      --rpcapi "eth,net,web3,personal,txpool"
+```
 
 ### 2. 智能合约开发与部署流程（AnalysisAnchor）
 
@@ -217,7 +218,7 @@ geth --dev --rpc --rpcaddr 127.0.0.1 --rpcport 8545 \
 ### 3. 区块链客户端集成与链上存证调用（Web3.py）
 
 系统后端通过 Web3.py 建立与本地区块链节点的连接，并加载已部署合约的 ABI 与地址：
-```
+```bash
 w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:8545"))
 contract = w3.eth.contract(
     address=ANCHOR_CONTRACT_ADDRESS,
