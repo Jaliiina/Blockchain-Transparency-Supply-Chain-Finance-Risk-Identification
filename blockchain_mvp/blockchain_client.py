@@ -1,58 +1,106 @@
 from web3 import Web3
-from web3.middleware.proof_of_authority import ExtraDataToPOAMiddleware 
-from pathlib import Path
-import json
+from web3.middleware.proof_of_authority import ExtraDataToPOAMiddleware
 
 w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:8545"))
-
-# 告诉 web3：这是 PoA 链（比如 geth --dev / clique）
 w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+
+ANCHOR_CONTRACT_ADDRESS = "0xd9145CCE52D386f254917e481eB44e9943F39138"
+
+ANALYSIS_ANCHOR_ABI = [
+    {
+        "inputs": [
+            {"internalType": "bytes32", "name": "datasetHash", "type": "bytes32"},
+            {"internalType": "bytes32", "name": "resultHash", "type": "bytes32"}
+        ],
+        "name": "commitReport",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "anonymous": False,
+        "inputs": [
+            {"indexed": False, "internalType": "bytes32", "name": "datasetHash", "type": "bytes32"},
+            {"indexed": False, "internalType": "bytes32", "name": "resultHash", "type": "bytes32"},
+            {"indexed": False, "internalType": "address", "name": "submitter", "type": "address"},
+            {"indexed": False, "internalType": "uint256", "name": "blockNumber", "type": "uint256"}
+        ],
+        "name": "ReportCommitted",
+        "type": "event"
+    }
+]
+
+_anchor_contract = None
+
+def _get_anchor_contract():
+    global _anchor_contract
+    if _anchor_contract is not None:
+        return _anchor_contract
+    if not ANCHOR_CONTRACT_ADDRESS:
+        return None
+    try:
+        _anchor_contract = w3.eth.contract(
+            address=Web3.to_checksum_address(ANCHOR_CONTRACT_ADDRESS),
+            abi=ANALYSIS_ANCHOR_ABI
+        )
+        return _anchor_contract
+    except Exception:
+        _anchor_contract = None
+        return None
 
 
 def chain_info():
-    """
-    返回链状态信息：是否连接成功、chain_id、区块高度、最新区块哈希
-    """
     ok = w3.is_connected()
     if not ok:
         return {"connected": False}
-
-    latest_block = w3.eth.get_block("latest")
-
+    latest = w3.eth.get_block("latest")
     return {
         "connected": True,
         "chain_id": int(w3.eth.chain_id),
-        "block_number": int(latest_block.number),
-        "latest_block_hash": latest_block.hash.hex(),
+        "block_number": int(latest.number),
+        "latest_block_hash": latest.hash.hex(),
     }
 
-CONTRACTS_DIR = Path(__file__).parent / "contracts"
-ABI_PATH = CONTRACTS_DIR / "hello_abi.json"
 
-
-HELLO_CONTRACT_ADDRESS = "0xe4618C3f72446CF62eC0C74ddF6D1def0CC72626"
-_hello_contract = None
-
-if ABI_PATH.exists():
-    try:
-        abi = json.loads(ABI_PATH.read_text(encoding="utf-8"))
-        if HELLO_CONTRACT_ADDRESS:
-            _hello_contract = w3.eth.contract(
-                address=HELLO_CONTRACT_ADDRESS,
-                abi=abi
-            )
-    except Exception:
-        _hello_contract = None
-
-
-def hello_say():
+def commit_report(dataset_hash_hex: str, result_hash_hex: str):
     """
-    调用链上的 Hello 合约的 sayHello() 函数
-    合约没配置好时返回 None，让前端提示一下
+    dataset_hash_hex/result_hash_hex: 64位hex字符串（不带0x）
+    返回：{ok, tx_hash, block_number, from} 或 {ok:False, message:"..."}
     """
-    if not w3.is_connected() or _hello_contract is None:
-        return None
+    if not w3.is_connected():
+        return {"ok": False, "message": "RPC 未连接"}
+
+    c = _get_anchor_contract()
+    if c is None:
+        return {"ok": False, "message": "合约未配置/地址或ABI有问题"}
+
+    dataset_b32 = Web3.to_bytes(hexstr="0x" + dataset_hash_hex)
+    result_b32  = Web3.to_bytes(hexstr="0x" + result_hash_hex)
+
+    accounts = getattr(w3.eth, "accounts", [])
+    if not accounts:
+        return {"ok": False, "message": "节点没有可用账户（w3.eth.accounts 为空）"}
+
+    sender = accounts[0]
     try:
-        return _hello_contract.functions.sayHello().call()
-    except Exception:
-        return None
+        nonce = w3.eth.get_transaction_count(sender)
+
+        tx = c.functions.commitReport(dataset_b32, result_b32).build_transaction({
+            "from": sender,
+            "nonce": nonce,
+            "gas": 300000,
+            "gasPrice": w3.to_wei(1, "gwei")
+        })
+
+        tx_hash = w3.eth.send_transaction(tx)
+        receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+
+        return {
+            "ok": True,
+            "from": sender,
+            "tx_hash": tx_hash.hex(),
+            "block_number": int(receipt.blockNumber)
+        }
+    except Exception as e:
+        return {"ok": False, "message": f"commitReport 发送失败：{e}"}
+
